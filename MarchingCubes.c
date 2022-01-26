@@ -1343,6 +1343,16 @@ float * compute_data(int obj_type, int *dim) {
   return img32;
 }
 
+double clockMsec() { //return milliseconds since midnight
+  struct timespec _t;
+  clock_gettime(CLOCK_MONOTONIC, &_t);
+  return _t.tv_sec*1000.0 + (_t.tv_nsec/1.0e6);
+}
+
+long timediff(double startTimeMsec, double endTimeMsec) {
+  return round(endTimeMsec - startTimeMsec);
+}
+
 void self_test(const char *fn, float isolevel, int originalMC) {
   int dim[3];
   float * img32 = NULL;
@@ -1357,21 +1367,22 @@ void self_test(const char *fn, float isolevel, int originalMC) {
     img32 = compute_data(obj_type, dim);
   if (img32 == NULL) return;
   MCB *mcp;
-  //set_method(mcp, originalMC );
   mcp = MarchingCubes(-1, -1, -1);
   set_resolution( mcp, dim[0], dim[1], dim[2]) ;
   init_all(mcp) ;
+  printf("input voxels: %d %d %d\n", dim[0], dim[1], dim[2]);
   set_method(mcp, originalMC );
   memcpy(mcp->data, img32, dim[0]*dim[1]*dim[2]*sizeof(float) ) ;
   free(img32);
-  run(mcp) ;
+  double startTime = clockMsec();
+  run(mcp);
+  printf("output mesh vert: %d tris: %d ms: %ld\n", mcp->nverts, mcp->ntrigs,  timediff(startTime, clockMsec()));
   clean_temps(mcp) ;
   #define MAX_BUF 1024
   char path[MAX_BUF], meshfn[MAX_BUF];
   if (getcwd (path, MAX_BUF) != path) exit(EXIT_FAILURE);
   int len = snprintf (meshfn, MAX_BUF-1, "%s/%d.ply", path, obj_type);
   if (len < 0) exit(EXIT_FAILURE);
-  printf("Saving %d vertices and %d triangles (originalMC: %d) as %s\n", mcp->nverts, mcp->ntrigs, originalMC, meshfn);
   writePLY(mcp, meshfn) ;
   clean_all(mcp) ;
   free(mcp);
